@@ -1,0 +1,25 @@
+MedicalReport:
+
+  type: object
+
+  properties:
+
+    _id:
+
+      type: string
+
+    reportTitle:
+
+      type: string
+
+      example: Blood Test
+
+    reportType:
+
+      type: string
+
+      example: PDF
+
+    fileUrl:
+
+      type: string

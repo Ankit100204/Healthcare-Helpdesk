@@ -1,0 +1,27 @@
+Prescription:
+
+  type: object
+
+  properties:
+
+    _id:
+
+      type: string
+
+    medicines:
+
+      type: array
+
+      items:
+
+        type: string
+
+    advice:
+
+      type: string
+
+    followUpDate:
+
+      type: string
+
+      format: date

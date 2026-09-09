@@ -12,6 +12,10 @@ const {
 
     generateSlots,
 
+    generateMySlots,
+
+    getMySlots,
+
     getAvailableSlots,
 
     getSlotById,
@@ -23,6 +27,28 @@ const {
 const {
     generateSlotValidator
 } = require("../validators/slot.validator");
+
+/**
+ * Generate Slots For Logged In Doctor
+ */
+router.post(
+    "/my/generate",
+    protect,
+    authorize(ROLES.DOCTOR),
+    generateSlotValidator,
+    validate,
+    generateMySlots
+);
+
+/**
+ * Get Logged In Doctor Slots
+ */
+router.get(
+    "/my",
+    protect,
+    authorize(ROLES.DOCTOR),
+    getMySlots
+);
 
 /**
  * Generate Slots

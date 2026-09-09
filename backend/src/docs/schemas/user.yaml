@@ -1,0 +1,47 @@
+User:
+
+  type: object
+
+  properties:
+
+    _id:
+
+      type: string
+
+      example: 687f123456789
+
+    firstName:
+
+      type: string
+
+      example: Ankit
+
+    lastName:
+
+      type: string
+
+      example: Gautam
+
+    email:
+
+      type: string
+
+      example: ankit@gmail.com
+
+    phone:
+
+      type: string
+
+      example: "9876543210"
+
+    role:
+
+      type: string
+
+      enum:
+
+        - patient
+
+        - doctor
+
+        - admin

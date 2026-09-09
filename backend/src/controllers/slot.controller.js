@@ -21,6 +21,46 @@ const generateSlots = asyncHandler(async (req, res) => {
 });
 
 /**
+ * Generate Slots For Logged In Doctor
+ */
+const generateMySlots = asyncHandler(async (req, res) => {
+
+    const result = await slotService.generateDoctorSlots(
+        req.user._id,
+        req.body
+    );
+
+    return res.status(201).json(
+        new ApiResponse(
+            201,
+            "Slots generated successfully",
+            result
+        )
+    );
+
+});
+
+/**
+ * Get Logged In Doctor Slots
+ */
+const getMySlots = asyncHandler(async (req, res) => {
+
+    const slots = await slotService.getDoctorSlots(
+        req.user._id,
+        req.query.date
+    );
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            "Slots fetched successfully",
+            slots
+        )
+    );
+
+});
+
+/**
  * Get Available Slots
  */
 const getAvailableSlots = asyncHandler(async (req, res) => {
@@ -85,6 +125,10 @@ const deleteSlots = asyncHandler(async (req, res) => {
 module.exports = {
 
     generateSlots,
+
+    generateMySlots,
+
+    getMySlots,
 
     getAvailableSlots,
 

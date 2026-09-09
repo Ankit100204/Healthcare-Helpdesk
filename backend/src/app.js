@@ -1,58 +1,48 @@
 const express = require("express");
-const cors = require("cors");
-const helmet = require("helmet");
-const cookieParser = require("cookie-parser");
-const morgan = require("morgan");
-
 
 const errorHandler = require("./middleware/error.middleware");
+const multerErrorHandler = require("./middleware/multerError.middleware");
+
 const authRoutes = require("./routes/auth.routes");
 const patientRoutes = require("./routes/patient.routes");
 const doctorRoutes = require("./routes/doctor.routes");
 const slotRoutes = require("./routes/slot.routes");
 const appointmentRoutes = require("./routes/appointment.routes");
-
-
-
-
+const fileRoutes = require("./routes/file.routes");
+const reportRoutes = require("./routes/report.routes");
+const prescriptionRoutes = require("./routes/prescription.routes");
+const notificationRoutes = require("./routes/notification.routes");
+const adminRoutes = require("./routes/admin.routes");
+const { swaggerUi, swaggerSpec } = require("./config/swagger");
 
 const app = express();
-app.use((req, res, next) => {
-    console.log("GLOBAL:", req.method, req.originalUrl);
-    next();
-});
 
-// Security
-app.use(helmet());
+require("./config/middleware")(app);
 
-// Enable CORS
-app.use(cors());
-
-// Parse JSON requests
-app.use(express.json());
-
-// Parse URL encoded data
-app.use(express.urlencoded({ extended: true }));
-
-// Parse Cookies
-app.use(cookieParser());
-
-// Logging
-app.use(morgan("dev"));
-
-
-
-//Routes
-
-
+// Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/patients", patientRoutes);
 app.use("/api/doctors", doctorRoutes);
 app.use("/api/slots", slotRoutes);
 app.use("/api/appointments", appointmentRoutes);
+app.use("/api/files", fileRoutes);
+app.use("/api/reports", reportRoutes);
+app.use("/api/prescriptions", prescriptionRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/admin", adminRoutes);
 
 
-// Test Route
+
+app.use(
+
+    "/api-docs",
+
+    swaggerUi.serve,
+
+    swaggerUi.setup(swaggerSpec)
+
+);
+// Health Check
 app.get("/", (req, res) => {
     res.json({
         success: true,
@@ -60,6 +50,8 @@ app.get("/", (req, res) => {
     });
 });
 
+// Error handlers
+app.use(multerErrorHandler);
 app.use(errorHandler);
 
 module.exports = app;

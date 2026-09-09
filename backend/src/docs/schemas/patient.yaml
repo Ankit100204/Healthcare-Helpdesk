@@ -1,0 +1,37 @@
+Patient:
+
+  type: object
+
+  properties:
+
+    _id:
+
+      type: string
+
+    user:
+
+      $ref: "#/components/schemas/User"
+
+    age:
+
+      type: integer
+
+      example: 24
+
+    gender:
+
+      type: string
+
+      example: Male
+
+    bloodGroup:
+
+      type: string
+
+      example: O+
+
+    emergencyContact:
+
+      type: string
+
+      example: "9876543210"

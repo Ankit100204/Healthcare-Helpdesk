@@ -2,10 +2,6 @@ const { body } = require("express-validator");
 
 const bookAppointmentValidator = [
 
-    // body("doctorId")
-    //     .notEmpty()
-    //     .withMessage("Doctor is required"),
-
     body("slotId")
         .notEmpty()
         .withMessage("Slot is required"),

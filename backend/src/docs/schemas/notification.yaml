@@ -1,0 +1,27 @@
+Notification:
+
+  type: object
+
+  properties:
+
+    _id:
+
+      type: string
+
+    title:
+
+      type: string
+
+    message:
+
+      type: string
+
+    isRead:
+
+      type: boolean
+
+    createdAt:
+
+      type: string
+
+      format: date-time

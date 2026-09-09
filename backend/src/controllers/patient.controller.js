@@ -17,24 +17,17 @@ const getProfile = asyncHandler(async (req, res) => {
 
 });
 
-const updateProfile = async (req, res) => {
-    try {
-        const patient = await patientService.updatePatientProfile(
-            req.user.id,
-            req.body
-        );
+const updateProfile = asyncHandler(async (req, res) => {
+    const patient = await patientService.updatePatientProfile(
+        req.user._id,
+        req.body
+    );
 
-        res.json({
-            success: true,
-            data: patient
-        });
-    } catch (error) {
-        res.status(400).json({
-            success: false,
-            message: error.message
-        });
-    }
-};
+    return res.status(200).json(
+        new ApiResponse(200, "Patient profile updated successfully", patient)
+    );
+});
+
 module.exports = {
     getProfile,
     updateProfile

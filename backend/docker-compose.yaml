@@ -1,0 +1,34 @@
+version: "3.9"
+
+services:
+  api:
+    build: .
+    container_name: healthcare-api
+
+    ports:
+      - "5050:5000"
+
+    depends_on:
+      - redis
+
+    environment:
+      PORT: 5000
+      MONGO_URI: mongodb+srv://2023ucp1594_db_user:GWDvcTZmWBe1C638@cluster0.2u4yaio.mongodb.net/healthcare_helpdesk?retryWrites=true&w=majority
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: "@mafia"
+      JWT_REFRESH_SECRET: "@itsmysecret"
+      JWT_EXPIRES_IN: 7d
+      JWT_REFRESH_EXPIRES_IN: 30d
+      CLIENT_URL: http://localhost:5173
+      LOG_LEVEL: info
+
+    volumes:
+      - .:/app
+      - /app/node_modules
+
+  redis:
+    image: redis:7
+    container_name: healthcare-redis
+
+    ports:
+      - "6379:6379"

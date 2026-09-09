@@ -1,5 +1,6 @@
 const User = require("../models/User");
 const Patient = require("../models/Patient");
+const Doctor = require("../models/Doctor")
 const { ROLES } = require("../constants/roles");
 const ApiError = require("../utils/ApiError");
 const generateToken = require("../utils/generateToken");
@@ -12,20 +13,20 @@ const registerUser = async (userData) => {
         email,
         phone,
         password,
-        role
+        role = ROLES.PATIENT
     } = userData;
 
     // Check existing email
     const existingEmail = await User.findOne({ email });
 
-   if(existingEmail){
+    if (existingEmail) {
 
-    throw new ApiError(
-        409,
-        "Email already exists"
-    );
+        throw new ApiError(
+            409,
+            "Email already exists"
+        );
 
-}
+    }
 
     // Check existing phone
     const existingPhone = await User.findOne({ phone });
@@ -46,13 +47,21 @@ const registerUser = async (userData) => {
     });
     if (role === ROLES.PATIENT) {
 
-    await Patient.create({
+        await Patient.create({
 
-        user: user._id
+            user: user._id
 
-    });
+        });
 
-}
+    } else if (role === ROLES.DOCTOR) {
+
+        await Doctor.create({
+
+            user: user._id
+
+        });
+
+    }
 
     return {
         id: user._id,
@@ -92,7 +101,19 @@ const loginUser = async ({ email, password }) => {
     };
 };
 
+const changePassword = async (userId, { currentPassword, newPassword }) => {
+    const user = await User.findById(userId).select("+password");
+
+    if (!user || !(await user.comparePassword(currentPassword))) {
+        throw new ApiError(400, "Current password is incorrect");
+    }
+
+    user.password = newPassword;
+    await user.save();
+};
+
 module.exports = {
     registerUser,
-    loginUser
+    loginUser,
+    changePassword
 };

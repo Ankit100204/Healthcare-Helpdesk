@@ -1,26 +1,32 @@
-//const mongoose = require("mongoose");
+const mongoose = require("mongoose");
 
 const User = require("../models/User");
 const Doctor = require("../models/Doctor");
-
+const Appointment = require("../models/Appointment");
 const ApiError = require("../utils/ApiError");
 const { ROLES } = require("../constants/roles");
+const { APPOINTMENT_STATUS } = require("../constants/appointmentStatus");
+const cacheService = require("./cache.service");
+const logger = require("../config/logger");
+
 
 /**
  * Create Doctor
  */
 const createDoctor = async (doctorData) => {
-    // const session = await mongoose.startSession();
-    // session.startTransaction();
+
+    const session = await mongoose.startSession();
 
     try {
+
+        session.startTransaction();
+
         const {
             firstName,
             lastName,
             email,
             phone,
             password,
-
             specialization,
             qualification,
             experience,
@@ -34,61 +40,77 @@ const createDoctor = async (doctorData) => {
         } = doctorData;
 
         // Check Email
-        const existingEmail = await User.findOne({ email });
+        const existingEmail = await User.findOne({ email }).session(session);
 
         if (existingEmail) {
             throw new ApiError(409, "Email already exists");
         }
 
         // Check Phone
-        const existingPhone = await User.findOne({ phone });
+        const existingPhone = await User.findOne({ phone }).session(session);
 
         if (existingPhone) {
             throw new ApiError(409, "Phone number already exists");
         }
 
         // Create User
-        const createdUser = await User.create(
-          {
-            firstName,
-            lastName,
-            email,
-            phone,
-            password,
-            role: ROLES.DOCTOR,
-
-            }
+        const createdUsers = await User.create(
+            [
+                {
+                    firstName,
+                    lastName,
+                    email,
+                    phone,
+                    password,
+                    role: ROLES.DOCTOR,
+                },
+            ],
+            { session }
         );
 
-        // const createdUser = createdUsers[0];
+        const createdUser = createdUsers[0];
 
         // Create Doctor Profile
-        const doctor = await Doctor.create({
-            user: createdUser._id,
-            specialization,
-            qualification,
-            experience,
-            consultationFee,
-            hospital,
-            about,
-            languages,
-            availability,
-            address,
-            profileImage,
-});
+        const doctors = await Doctor.create(
+            [
+                {
+                    user: createdUser._id,
+                    specialization,
+                    qualification,
+                    experience,
+                    consultationFee,
+                    hospital,
+                    about,
+                    languages,
+                    availability,
+                    address,
+                    profileImage,
+                },
+            ],
+            { session }
+        );
 
-        // await session.commitTransaction();
-        // session.endSession();
+        const doctor = doctors[0];
+
+        await session.commitTransaction();
+
+        // Invalidate cached doctor list so new doctors appear immediately
+        await cacheService.delPattern("doctor:list*");
 
         return await Doctor.findById(doctor._id)
             .populate("user", "-password");
 
     } catch (error) {
 
-        // await session.abortTransaction();
-        // session.endSession();
-        console.error("Create Doctor Error:", error);
+        if (session.inTransaction()) {
+            await session.abortTransaction();
+        }
         throw error;
+
+    } finally {
+
+        session.endSession();
+
     }
 };
 
@@ -97,14 +119,28 @@ const createDoctor = async (doctorData) => {
  */
 const getAllDoctors = async () => {
 
-    return await Doctor.find()
-        .populate(
-            "user",
-            "-password"
-        )
-        .sort({
-            createdAt: -1,
-        });
+    return await cacheService.remember(
+
+        "doctor:list",
+
+        600,
+
+        async () => {
+
+            return await Doctor.find()
+
+                .populate(
+                    "user",
+                    "-password"
+                )
+
+                .sort({
+                    createdAt: -1
+                });
+
+        }
+
+    );
 
 };
 
@@ -113,20 +149,34 @@ const getAllDoctors = async () => {
  */
 const getDoctorById = async (id) => {
 
-    const doctor = await Doctor.findById(id)
-        .populate(
-            "user",
-            "-password"
-        );
+    return await cacheService.remember(
 
-    if (!doctor) {
-        throw new ApiError(
-            404,
-            "Doctor not found"
-        );
-    }
+        `doctor:${id}`,
 
-    return doctor;
+        600,
+
+        async () => {
+
+            const doctor = await Doctor.findById(id)
+                .populate(
+                    "user",
+                    "-password"
+                );
+
+            if (!doctor) {
+
+                throw new ApiError(
+                    404,
+                    "Doctor not found"
+                );
+
+            }
+
+            return doctor;
+
+        }
+
+    );
 
 };
 
@@ -187,7 +237,17 @@ const updateDoctor = async (doctorId, updateData) => {
     });
 
     await doctor.save();
+    await Promise.all([
 
+        cacheService.del(
+            `doctor:${doctor._id}`
+        ),
+
+        cacheService.delPattern(
+            "doctor:list*"
+        )
+
+    ]);
     return await Doctor.findById(doctor._id)
         .populate(
             "user",
@@ -201,13 +261,13 @@ const updateDoctor = async (doctorId, updateData) => {
  */
 const deleteDoctor = async (doctorId) => {
 
-    // const session = await mongoose.startSession();
-
-    // session.startTransaction();
+    const session = await mongoose.startSession();
 
     try {
 
-        const doctor = await Doctor.findById(doctorId);
+        session.startTransaction();
+
+        const doctor = await Doctor.findById(doctorId).session(session);
 
         if (!doctor) {
             throw new ApiError(
@@ -215,21 +275,63 @@ const deleteDoctor = async (doctorId) => {
                 "Doctor not found"
             );
         }
+        const activeAppointment = await Appointment.findOne({
+            doctor: doctorId,
+            status: {
+                $in: [
+                    APPOINTMENT_STATUS.PENDING,
+                    APPOINTMENT_STATUS.CONFIRMED,
+                    APPOINTMENT_STATUS.IN_PROGRESS
+                ]
+            }
+        }).session(session);
 
-        await User.findByIdAndDelete(doctor.user);
-        await Doctor.findByIdAndDelete(doctorId);
+        if (activeAppointment) {
+            throw new ApiError(
+                400,
+                "Doctor has active appointments and cannot be deleted"
+            );
+        }
+        await User.findByIdAndDelete(
+            doctor.user,
+            { session }
+        );
 
-        // await session.commitTransaction();
+        await Doctor.findByIdAndDelete(
+            doctorId,
+            { session }
+        );
 
-        // session.endSession();
+        await session.commitTransaction();
+
+        // Invalidate cached doctor list + this doctor's cached profile
+        await Promise.all([
+
+            cacheService.del(
+                `doctor:${doctorId}`
+            ),
+
+            cacheService.delPattern(
+                "doctor:list*"
+            )
+
+        ]);
+
+        return {
+            message: "Doctor deleted successfully"
+        };
 
     } catch (error) {
 
-        // await session.abortTransaction();
-
-        // session.endSession();
+        if (session.inTransaction()) {
+            await session.abortTransaction();
+        }
 
         throw error;
+
+    } finally {
+
+        session.endSession();
 
     }
 
@@ -275,6 +377,234 @@ const searchDoctors = async (query) => {
 
 };
 
+const getDoctorDashboard = async (
+    userId
+) => {
+    const doctor = await Doctor.findOne({
+
+        user: userId
+
+    });
+
+    if (!doctor) {
+
+        throw new ApiError(
+
+            404,
+
+            "Doctor not found"
+
+        );
+
+    }
+    const {
+
+        startOfDay,
+
+        endOfDay
+
+    } = require("date-fns");
+    const todayStart =
+        startOfDay(new Date());
+
+    const todayEnd =
+        endOfDay(new Date());
+    const dashboard = await Appointment.aggregate([
+        {
+            $match: {
+                doctor: doctor._id
+            }
+        },
+        {
+            $facet: {
+
+                todayAppointments: [
+
+                    {
+                        $match: {
+
+                            appointmentStart: {
+
+                                $gte: todayStart,
+
+                                $lte: todayEnd
+
+                            }
+
+                        }
+
+                    },
+
+                    {
+
+                        $count: "count"
+
+                    }
+
+                ],
+
+                pendingAppointments: [
+
+                    {
+
+                        $match: {
+
+                            status: "pending"
+
+                        }
+
+                    },
+
+                    {
+
+                        $count: "count"
+
+                    }
+
+                ],
+
+                confirmedAppointments: [
+
+                    {
+
+                        $match: {
+
+                            status: "confirmed"
+
+                        }
+
+                    },
+
+                    {
+
+                        $count: "count"
+
+                    }
+
+                ],
+
+                completedAppointments: [
+
+                    {
+
+                        $match: {
+
+                            status: "completed"
+
+                        }
+
+                    },
+
+                    {
+
+                        $count: "count"
+
+                    }
+
+                ],
+
+                cancelledAppointments: [
+
+                    {
+
+                        $match: {
+
+                            status: "cancelled"
+
+                        }
+
+                    },
+
+                    {
+
+                        $count: "count"
+
+                    }
+
+                ],
+
+                upcomingAppointments: [
+
+                    {
+
+                        $match: {
+
+                            appointmentStart: {
+
+                                $gt: new Date()
+
+                            }
+
+                        }
+
+                    },
+
+                    {
+
+                        $count: "count"
+
+                    }
+
+                ],
+
+                recentAppointments: [
+
+                    {
+
+                        $sort: {
+
+                            appointmentStart: -1
+
+                        }
+
+                    },
+
+                    {
+
+                        $limit: 5
+
+                    },
+
+                    {
+
+                        $lookup: {
+
+                            from: "patients",
+
+                            localField: "patient",
+
+                            foreignField: "_id",
+
+                            as: "patient"
+
+                        }
+
+                    }
+
+                ]
+
+            }
+
+        }
+
+    ]);
+
+    const result = dashboard[0];
+
+    return {
+        summary: {
+            todayAppointments: result.todayAppointments[0]?.count || 0,
+            pendingAppointments: result.pendingAppointments[0]?.count || 0,
+            confirmedAppointments: result.confirmedAppointments[0]?.count || 0,
+            completedAppointments: result.completedAppointments[0]?.count || 0,
+            cancelledAppointments: result.cancelledAppointments[0]?.count || 0,
+            upcomingAppointments: result.upcomingAppointments[0]?.count || 0
+        },
+        recentAppointments: result.recentAppointments
+    };
+
+};
+
 module.exports = {
 
     createDoctor,
@@ -289,6 +619,7 @@ module.exports = {
 
     deleteDoctor,
 
-    searchDoctors
+    searchDoctors,
+    getDoctorDashboard
 
 };

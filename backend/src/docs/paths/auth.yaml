@@ -1,0 +1,112 @@
+paths:
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+
+      summary: Register User
+
+      description: Register a new patient, doctor or admin.
+
+      security: []
+
+      requestBody:
+        required: true
+
+        content:
+          application/json:
+            schema:
+              type: object
+
+              required:
+                - firstName
+                - lastName
+                - email
+                - phone
+                - password
+                - role
+
+              properties:
+                firstName:
+                  type: string
+
+                  example: Ankit
+
+                lastName:
+                  type: string
+
+                  example: Gautam
+
+                email:
+                  type: string
+
+                  example: ankit@gmail.com
+
+                phone:
+                  type: string
+
+                  example: "9876543210"
+
+                password:
+                  type: string
+
+                  example: Password@123
+
+                role:
+                  type: string
+
+                  enum:
+                    - patient
+
+                    - doctor
+
+                    - admin
+
+      responses:
+        201:
+          description: User Registered Successfully
+
+        400:
+          description: Validation Error
+
+        409:
+          description: Email Already Exists
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+
+      summary: Login User
+
+      security: []
+
+      requestBody:
+        required: true
+
+        content:
+          application/json:
+            schema:
+              type: object
+
+              required:
+                - email
+                - password
+
+              properties:
+                email:
+                  type: string
+
+                  example: ankit@gmail.com
+
+                password:
+                  type: string
+
+                  example: Password@123
+
+      responses:
+        200:
+          description: Login Successful
+
+        401:
+          description: Invalid Credentials

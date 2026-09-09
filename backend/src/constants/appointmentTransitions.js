@@ -28,6 +28,12 @@ const APPOINTMENT_TRANSITIONS = {
 
 };
 
+const isValidTransition = (currentStatus, nextStatus) => {
+    const allowed = APPOINTMENT_TRANSITIONS[currentStatus];
+    return allowed ? allowed.includes(nextStatus) : false;
+};
+
 module.exports = {
-    APPOINTMENT_TRANSITIONS
+    APPOINTMENT_TRANSITIONS,
+    isValidTransition
 };

@@ -1,0 +1,23 @@
+BadRequest:
+
+  description: Bad Request
+
+Unauthorized:
+
+  description: Unauthorized
+
+Forbidden:
+
+  description: Forbidden
+
+NotFound:
+
+  description: Resource Not Found
+
+Conflict:
+
+  description: Conflict
+
+InternalServerError:
+
+  description: Internal Server Error

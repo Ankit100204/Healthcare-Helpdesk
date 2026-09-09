@@ -5,17 +5,20 @@ const AppointmentSlot = require("../models/AppointmentSlot");
 const Patient = require("../models/Patient");
 const Doctor = require("../models/Doctor");
 
+const { NOTIFICATION_TYPES } = require("../constants/notificationTypes");
 const ApiError = require("../utils/ApiError");
-const {CANCELLED_BY}=require("../constants/cancelledBy")
+const { CANCELLED_BY }=require("../constants/cancelledBy")
 const { APPOINTMENT_STATUS } = require("../constants/appointmentStatus");
-const {
-    APPOINTMENT_TRANSITIONS
-} = require("../constants/appointmentTransitions");
+const { APPOINTMENT_TRANSITIONS } = require("../constants/appointmentTransitions");
+const notificationService = require("./notification.service");
+const {getPagination} = require("../utils/pagination")
 const findPatient = async (userId, session) => {
 
     const patient = await Patient.findOne({
         user: userId
-    }).session(session);
+    })
+    .populate("user", "firstName lastName email phone")
+    .session(session);
 
     if (!patient) {
         throw new ApiError(
@@ -27,10 +30,6 @@ const findPatient = async (userId, session) => {
     return patient;
 };
 const reserveSlot = async (slotId, session) => {
-
-    
-  
-
     const slot = await AppointmentSlot.findOneAndUpdate(
         {
             _id: slotId,
@@ -49,8 +48,7 @@ const reserveSlot = async (slotId, session) => {
             session
         }
     );
-    console.log("Updated Slot:", slot);
-
+    console.log("Reserved Slot:", slot);
     if (!slot) {
         throw new ApiError(
             409,
@@ -64,7 +62,9 @@ const findDoctor = async (doctorId, session) => {
 
     const doctor = await Doctor.findById(
         doctorId
-    ).session(session);
+    )
+    .populate("user","firstName lastName email")
+    .session(session);
 
     if (!doctor) {
         throw new ApiError(
@@ -124,7 +124,6 @@ const populateAppointment = async (appointmentId) => {
         .populate("slot");
 };
 const bookAppointment = async (userId, data) => {
-    console.log("Booking request:", data);
     const session = await mongoose.startSession();
 
     try {
@@ -142,31 +141,29 @@ const bookAppointment = async (userId, data) => {
             userId,
             session
         );
-
+       
         // Reserve Slot
         const slot = await reserveSlot(
             slotId,
             session
         );
-
+        
         // Find Doctor
         const doctor = await findDoctor(
             slot.doctor,
             session
         );
-
+        
         // Create Appointment
-        const appointment =
-            await createAppointment(
-                patient,
-                doctor,
-                slot,
-                reason,
-                symptoms,
-                session
-            );
-
-        // Link Appointment To Slot
+        const appointment = await createAppointment(
+            patient,
+            doctor,
+            slot,
+            reason,
+            symptoms,
+            session
+        );
+        // Link Appointment to Slot
         await AppointmentSlot.updateOne(
             { _id: slot._id },
             {
@@ -176,18 +173,64 @@ const bookAppointment = async (userId, data) => {
             },
             { session }
         );
-       
+
+        // Commit Transaction
         await session.commitTransaction();
-        // TODO:
-        // notificationService.sendAppointmentBooked(appointment._id);
-        // emailService.sendAppointmentConfirmation(appointment._id);
+
+        // Send Notifications (Do NOT fail booking if notification fails)
+        try {
+
+            await notificationService.createNotification({
+
+                recipient: patient.user,
+
+                title: "Appointment Booked",
+
+                message:
+                    `Your appointment with Dr. ${doctor.user.firstName} has been booked successfully.`,
+
+                type: NOTIFICATION_TYPES.APPOINTMENT_BOOKED,
+
+                metadata: {
+                    appointmentId: appointment._id
+                }
+
+            });
+
+            await notificationService.createNotification({
+
+                recipient: doctor.user,
+
+                title: "New Appointment",
+
+                message:
+                    "A new patient has booked an appointment.",
+
+                type: NOTIFICATION_TYPES.APPOINTMENT_BOOKED,
+
+                metadata: {
+                    appointmentId: appointment._id
+                }
+
+            });
+
+        } catch (notificationError) {
+
+            console.error(
+                "Notification Error:",
+                notificationError
+            );
+
+        }
+
         return await populateAppointment(
             appointment._id
         );
 
     } catch (error) {
-
-        await session.abortTransaction();
+         if (session.inTransaction()) {
+            await session.abortTransaction();
+        }
 
         throw error;
 
@@ -198,6 +241,8 @@ const bookAppointment = async (userId, data) => {
     }
 
 };
+
+
 const getMyAppointments = async (
     userId,
     query
@@ -216,10 +261,6 @@ if (!patient) {
 }
 const {
 
-    page = 1,
-
-    limit = 10,
-
     status,
 
     type,
@@ -232,14 +273,11 @@ const {
 
 } = query;
 // pagination
-const pageNumber = Math.max(1, Number(page) || 1);
-
-const pageSize = Math.min(
-    100,
-    Math.max(1, Number(limit) || 10)
-);
-
-const skip = (pageNumber - 1) * pageSize;
+const {
+    page,
+    limit,
+    skip
+} = getPagination(query);
 const filter = {
 
     patient: patient._id
@@ -330,7 +368,7 @@ sort==="desc"
 
 .skip(skip)
 
-.limit(pageSize)
+.limit(limit)
 
 .lean();
 
@@ -343,11 +381,11 @@ return {
 
     total,
 
-    page: pageNumber,
+    page,
 
-    limit: pageSize,
+    limit,
 
-    totalPages: Math.ceil(total / pageSize),
+    totalPages: Math.ceil(total / limit),
 
     appointments
 
@@ -531,6 +569,7 @@ appointments
 
 };
 
+
 };
 const updateAppointmentStatus = async (
     userId,
@@ -552,6 +591,13 @@ const updateAppointmentStatus = async (
     const appointment = await Appointment.findOne({
         _id: appointmentId,
         doctor: doctor._id
+    })
+    .populate({
+    path: "patient",
+    populate: {
+        path: "user",
+        select: "firstName lastName email phone"
+    }
     });
 
     if (!appointment) {
@@ -578,6 +624,25 @@ const updateAppointmentStatus = async (
 
     case APPOINTMENT_STATUS.CONFIRMED:
         appointment.confirmedAt = new Date();
+        await notificationService.createNotification({
+
+            recipient: appointment.patient.user._id,
+
+            title: "Appointment Confirmed",
+
+            message:
+                "Your appointment has been confirmed by the doctor.",
+
+            type:
+                NOTIFICATION_TYPES.APPOINTMENT_CONFIRMED,
+
+            metadata: {
+
+                appointmentId: appointment._id
+
+            }
+
+        });
         break;
 
     case APPOINTMENT_STATUS.IN_PROGRESS:
@@ -689,14 +754,34 @@ const cancelAppointment = async (
         );
 
         await session.commitTransaction();
+        await notificationService.createNotification({
 
+            recipient: patient.user,
+
+            title: "Appointment Cancelled",
+
+            message:
+                "Your appointment has been cancelled.",
+
+            type:
+                NOTIFICATION_TYPES.APPOINTMENT_CANCELLED,
+
+            metadata: {
+
+                appointmentId: appointment._id
+
+            }
+
+        });
         return await populateAppointment(
             appointment._id
         );
 
     } catch (error) {
 
+        if (session.inTransaction()) {
         await session.abortTransaction();
+    }
         throw error;
 
     } finally {
@@ -877,6 +962,28 @@ throw error;
 }
 
 };
+const getAllAppointments = async () => {
+
+    const appointments = await Appointment.find()
+        .populate({
+            path: "patient",
+            populate: {
+                path: "user",
+                select: "firstName lastName email phone"
+            }
+        })
+        .populate({
+            path: "doctor",
+            populate: {
+                path: "user",
+                select: "firstName lastName email phone"
+            }
+        })
+        .populate("slot")
+        .sort({ appointmentStart: -1 });
+
+    return appointments;
+};
 
 module.exports = {
     getMyAppointments,
@@ -884,5 +991,6 @@ module.exports = {
     getDoctorAppointments,
     updateAppointmentStatus,
     cancelAppointment,
-    rescheduleAppointment
+    rescheduleAppointment,
+    getAllAppointments
 };

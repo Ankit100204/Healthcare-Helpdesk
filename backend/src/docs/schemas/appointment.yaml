@@ -1,0 +1,37 @@
+Appointment:
+
+  type: object
+
+  properties:
+
+    _id:
+
+      type: string
+
+    patient:
+
+      $ref: "#/components/schemas/Patient"
+
+    doctor:
+
+      $ref: "#/components/schemas/Doctor"
+
+    reason:
+
+      type: string
+
+      example: Chest Pain
+
+    symptoms:
+
+      type: array
+
+      items:
+
+        type: string
+
+    status:
+
+      type: string
+
+      example: Pending

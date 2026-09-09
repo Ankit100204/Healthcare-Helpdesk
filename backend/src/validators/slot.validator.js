@@ -3,8 +3,9 @@ const { body } = require("express-validator");
 const generateSlotValidator = [
 
     body("doctorId")
-        .notEmpty()
-        .withMessage("Doctor Id is required"),
+        .optional()
+        .isMongoId()
+        .withMessage("Invalid doctor id"),
 
     body("date")
         .isISO8601()

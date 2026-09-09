@@ -1,0 +1,43 @@
+Doctor:
+
+  type: object
+
+  properties:
+
+    _id:
+
+      type: string
+
+    user:
+
+      $ref: "#/components/schemas/User"
+
+    specialization:
+
+      type: string
+
+      example: Cardiologist
+
+    qualification:
+
+      type: string
+
+      example: MBBS, MD
+
+    experience:
+
+      type: integer
+
+      example: 8
+
+    consultationFee:
+
+      type: integer
+
+      example: 700
+
+    totalPatients:
+
+      type: integer
+
+      example: 135

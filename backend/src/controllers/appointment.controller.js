@@ -7,6 +7,7 @@ const ApiResponse = require("../utils/ApiResponse");
  */
 
 const bookAppointment = asyncHandler(async (req, res) => {
+       
     const appointments =
     await appointmentService.bookAppointment(
         req.user._id,

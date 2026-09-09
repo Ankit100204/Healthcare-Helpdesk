@@ -82,11 +82,19 @@ const logout = asyncHandler(async (req, res) => {
     );
 
 });
+
+const changePassword = asyncHandler(async (req, res) => {
+    await authService.changePassword(req.user._id, req.body);
+    return res.status(200).json(
+        new ApiResponse(200, "Password changed successfully")
+    );
+});
 module.exports = {
 
     register,
     login,
     getProfile,
-    logout
+    logout,
+    changePassword
 
 };

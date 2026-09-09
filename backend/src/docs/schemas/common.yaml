@@ -1,0 +1,47 @@
+SuccessResponse:
+
+  type: object
+
+  properties:
+
+    success:
+
+      type: boolean
+
+      example: true
+
+    statusCode:
+
+      type: integer
+
+      example: 200
+
+    message:
+
+      type: string
+
+      example: Success
+
+ErrorResponse:
+
+  type: object
+
+  properties:
+
+    success:
+
+      type: boolean
+
+      example: false
+
+    statusCode:
+
+      type: integer
+
+      example: 400
+
+    message:
+
+      type: string
+
+      example: Validation Error
