@@ -1,5 +1,4 @@
-import { Routes, Route } from "react-router-dom";
-
+import { Routes, Route ,Navigate} from "react-router-dom";
 import ProtectedRoute from "./ProtectedRoute";
 import RoleRoute from "./RoleRoute";
 
@@ -42,7 +41,10 @@ const AppRoutes = () => {
     return (
         <Routes>
 
-            <Route path="/" element={<Home />} />
+            <Route
+                path="/"
+                element={<Navigate to="/auth/login" replace />}
+            />
             <Route path="auth/login" element={<Login />} />
             <Route path="auth/register" element={<Register />} />
 
