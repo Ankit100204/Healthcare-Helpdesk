@@ -13,13 +13,13 @@ services:
 
     environment:
       PORT: 5000
-      MONGO_URI: mongodb+srv://2023ucp1594_db_user:GWDvcTZmWBe1C638@cluster0.2u4yaio.mongodb.net/healthcare_helpdesk?retryWrites=true&w=majority
-      REDIS_URL: redis://redis:6379
-      JWT_SECRET: "@mafia"
-      JWT_REFRESH_SECRET: "@itsmysecret"
+      MONGO_URI: ${MONGO_URI}
+      REDIS_URL: ${REDIS_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       JWT_EXPIRES_IN: 7d
       JWT_REFRESH_EXPIRES_IN: 30d
-      CLIENT_URL: http://localhost:5173
+      CLIENT_URL: ${CLIENT_URL}
       LOG_LEVEL: info
 
     volumes:
