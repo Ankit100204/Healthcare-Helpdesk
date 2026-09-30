@@ -30,8 +30,8 @@ const login = asyncHandler(async (req, res) => {
 
     res.cookie("token", data.token, {
         httpOnly: true,
-        secure: false,          // true after deployment with HTTPS
-        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
         maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
@@ -46,7 +46,6 @@ const login = asyncHandler(async (req, res) => {
     );
 
 });
-
 const getProfile = asyncHandler(async (req, res) => {
 
     return res.status(200).json(
@@ -67,18 +66,17 @@ const getProfile = asyncHandler(async (req, res) => {
 
 const logout = asyncHandler(async (req, res) => {
 
-    res.clearCookie("token");
+    res.clearCookie("token", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax"
+    });
 
     return res.status(200).json(
-
         new ApiResponse(
-
             200,
-
             "Logout Successful"
-
         )
-
     );
 
 });

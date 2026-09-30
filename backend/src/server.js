@@ -27,7 +27,7 @@ const startServer = async () => {
 
         registerSocketEvents();
         await connectRedis();
-        server.listen(PORT, () => {
+        server.listen(PORT,"0.0.0.0", () => {
 
             logger.info(`Server running on port ${PORT}`);
 
